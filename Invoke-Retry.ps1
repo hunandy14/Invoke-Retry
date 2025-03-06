@@ -39,7 +39,7 @@
 
 .PARAMETER RetryableErrors
     指定需要重試的錯誤類型列表。如果未指定，則所有錯誤都會重試。
-    例如：@("System.Net.WebException", "System.IO.IOException")
+    例如：@([System.Net.WebException], [System.IO.IOException])
 
 .EXAMPLE
     Invoke-Retry {
@@ -61,8 +61,8 @@
     Invoke-Retry {
         Get-Content "file.txt"
     } -RetryableErrors @(
-        "System.IO.FileNotFoundException",
-        "System.IO.DirectoryNotFoundException"
+        [System.IO.FileNotFoundException],
+        [System.IO.DirectoryNotFoundException]
     ) -MaxRetries 3 -DelaySeconds 5 -ErrorAction Stop
 #>
 function Invoke-Retry {
@@ -89,7 +89,7 @@ function Invoke-Retry {
         [string]$FailureMessage = "Maximum retry attempts ({0}) reached, program terminated abnormally",
 
         # 需要重試的錯誤類型列表
-        [string[]]$RetryableErrors = @()
+        [Type[]]$RetryableErrors = @()
     )
 
     begin {
@@ -103,11 +103,11 @@ function Invoke-Retry {
                 return
             }
             catch {
-                $errorType = $_.Exception.GetType().FullName
+                $errorType = $_.Exception.GetType()
                 
                 if ($RetryableErrors.Count -gt 0 -and $RetryableErrors -notcontains $errorType) {
-                    Write-Error "Error type not configured for retry: $errorType"
-                    return
+                    Write-Error "Error type not configured for retry: $($errorType.FullName)"
+                    throw
                 }
 
                 $retryCount++
@@ -144,12 +144,11 @@ function Invoke-Retry {
 
 ## 範例2 指定錯誤重試 (範圍外不重試直接報錯)
 # Invoke-Retry {
-#     Get-Content "file.txt" -ErrorAction Stop
-#     # throw "Error occurred"
+#     Get-Content "non-existing-file.txt" -ErrorAction Stop
 # } -FinallyScriptBlock {
 #     Write-Host "  🔄 Running Cleanup"
 # } -RetryableErrors @(
-#     "System.Management.Automation.ItemNotFoundException",
-#     "System.IO.FileNotFoundException",
-#     "System.IO.DirectoryNotFoundException"
+#     # [System.Management.Automation.ItemNotFoundException],
+#     [System.IO.FileNotFoundException],
+#     [System.IO.DirectoryNotFoundException]
 # ) -MaxRetries 3 -DelaySeconds 1 -ErrorAction Stop
