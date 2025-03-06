@@ -2,6 +2,9 @@
 
 一個 PowerShell 重試函數，用於執行可能失敗的操作並自動重試。
 
+
+<br><br>
+
 ## 快速使用
 
 ```ps1
@@ -12,6 +15,9 @@ Invoke-Retry -MaxRetries 3 -DelaySeconds 1 -ErrorAction Stop {
 ```
 
 > 建議 Invoke-Retry 總是搭配 `-ErrorAction Stop` 使用，避免因為忘記在腳本塊中加入錯誤處理，導致腳本沒有觸發例外狀況而無法自動重試。
+
+
+<br><br>
 
 ## 詳細說明
 
@@ -31,7 +37,7 @@ Invoke-Retry -MaxRetries 3 -DelaySeconds 1 -ErrorAction Stop {
 }
 ```
 
-指定特定錯誤重試
+指定特定錯誤類型重試
 
 ```ps1
 Invoke-Retry {
