@@ -80,7 +80,7 @@ function Invoke-Retry {
         # 失敗後的等待時間（秒）
         [ValidateRange(1, 3600)]
         [int]$DelaySeconds = 60,
-        
+
         # 重試時的訊息
         [string]$RetryMessage = "Line {0}::{1} (Attempt[{2}/{3}]): `r`n  {4}",
         # 等待訊息
@@ -103,32 +103,34 @@ function Invoke-Retry {
                 return
             }
             catch {
+                # 錯誤類型
                 $errorType = $_.Exception.GetType()
-                
                 if ($RetryableErrors.Count -gt 0 -and $RetryableErrors -notcontains $errorType) {
                     Write-Warning "Error type not configured for retry [$($errorType.FullName)]"
                     throw # 這裡使用 throw 是因為反正只錯一次就忠實的呈現結果
                     # 為什麼不用 Write-Error + return 由外部EA控制報錯, 是因為指定 RetryableErrors 了卻沒在清單內
                 }
 
+                # 重試訊息
                 $retryCount++
                 $line = $_.InvocationInfo.ScriptLineNumber
                 $funcName = $_.InvocationInfo.MyCommand.Name
                 $msg = $RetryMessage -f $line, $funcName, $retryCount, $MaxRetries, $_.Exception.Message
                 Write-Host $msg -ForegroundColor Red
 
+                # 達到最大重試次數
                 if ($retryCount -ge $MaxRetries) {
                     $msg = $FailureMessage -f $MaxRetries
                     Write-Error $msg
                     return # 這裡不使用 throw 是因為 RetryMessage 中已經有顯示錯誤信息 $_ 了
-                }
-                else {
+                } else {
                     $msg = ($WaitMessage -f $DelaySeconds, ($retryCount + 1), $MaxRetries)
                     Write-Host $msg -ForegroundColor Yellow
                     Start-Sleep -Seconds $DelaySeconds
                 }
             }
             finally {
+                # 最後執行的腳本區塊
                 if ($FinallyScriptBlock -ne $null) {
                     & $FinallyScriptBlock
                 }
