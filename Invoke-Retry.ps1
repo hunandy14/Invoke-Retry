@@ -37,11 +37,15 @@
     達到最大重試次數時顯示的錯誤訊息格式。
     可以使用 {0} 作為最大重試次數的佔位符。
 
+.PARAMETER RetryableErrors
+    指定需要重試的錯誤類型列表。如果未指定，則所有錯誤都會重試。
+    例如：@("System.Net.WebException", "System.IO.IOException")
+
 .EXAMPLE
     Invoke-Retry {
         # 執行可能失敗的操作
         Get-Content "不存在的檔案.txt"
-    } -MaxRetries 3 -DelaySeconds 5 -EA 1
+    } -MaxRetries 3 -DelaySeconds 5 -ErrorAction Stop
 
 .EXAMPLE
     Invoke-Retry {
@@ -50,7 +54,16 @@
     } -FinallyScriptBlock {
         # 清理工作
         Write-Host "清理資源..."
-    } -MaxRetries 3 -DelaySeconds 5 -EA 1
+    } -MaxRetries 3 -DelaySeconds 5 -ErrorAction Stop
+
+.EXAMPLE
+    # 只重試特定錯誤類型
+    Invoke-Retry {
+        Get-Content "file.txt"
+    } -RetryableErrors @(
+        "System.IO.FileNotFoundException",
+        "System.IO.DirectoryNotFoundException"
+    ) -MaxRetries 3 -DelaySeconds 5 -ErrorAction Stop
 #>
 function Invoke-Retry {
     param (
@@ -73,7 +86,10 @@ function Invoke-Retry {
         # 等待訊息
         [string]$WaitMessage = "Waiting {0} seconds before retry... (Attempt {1} / {2})",
         # 自訂錯誤訊息
-        [string]$FailureMessage = "Maximum retry attempts ({0}) reached, program terminated abnormally" 
+        [string]$FailureMessage = "Maximum retry attempts ({0}) reached, program terminated abnormally",
+
+        # 需要重試的錯誤類型列表
+        [string[]]$RetryableErrors = @()
     )
 
     begin {
@@ -87,6 +103,13 @@ function Invoke-Retry {
                 return
             }
             catch {
+                $errorType = $_.Exception.GetType().FullName
+                
+                if ($RetryableErrors.Count -gt 0 -and $RetryableErrors -notcontains $errorType) {
+                    Write-Error "Error type not configured for retry: $errorType"
+                    return
+                }
+
                 $retryCount++
                 $msg = $RetryMessage -f $retryCount, $MaxRetries, $_
                 Write-Host $msg -ForegroundColor Red
@@ -112,8 +135,21 @@ function Invoke-Retry {
     }
 }
 
+## 範例1 任意錯誤都重試
 # Invoke-Retry {
 #     throw "Error occurred"
 # } -FinallyScriptBlock {
 #     Write-Host "  🔄 Running Cleanup"
-# } -MaxRetries 3 -DelaySeconds 1 -EA 1
+# } -MaxRetries 3 -DelaySeconds 1 -ErrorAction Stop
+
+## 範例2 指定錯誤重試 (範圍外不重試直接報錯)
+# Invoke-Retry {
+#     Get-Content "file.txt" -ErrorAction Stop
+#     # throw "Error occurred"
+# } -FinallyScriptBlock {
+#     Write-Host "  🔄 Running Cleanup"
+# } -RetryableErrors @(
+#     "System.Management.Automation.ItemNotFoundException",
+#     "System.IO.FileNotFoundException",
+#     "System.IO.DirectoryNotFoundException"
+# ) -MaxRetries 3 -DelaySeconds 1 -ErrorAction Stop
