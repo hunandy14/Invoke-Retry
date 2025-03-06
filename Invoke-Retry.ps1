@@ -106,23 +106,25 @@ function Invoke-Retry {
                 $errorType = $_.Exception.GetType()
                 
                 if ($RetryableErrors.Count -gt 0 -and $RetryableErrors -notcontains $errorType) {
-                    Write-Error "Error type not configured for retry: $($errorType.FullName)"
-                    throw
+                    Write-Warning "Error type not configured for retry [$($errorType.FullName)]"
+                    throw # 這裡使用 throw 是因為反正只錯一次就忠實的呈現結果
+                    # 為什麼不用 Write-Error + return 由外部EA控制報錯, 是因為指定 RetryableErrors 了卻沒在清單內
                 }
 
                 $retryCount++
-                $msg = $RetryMessage -f $retryCount, $MaxRetries, $_
+                $line = $_.InvocationInfo.ScriptLineNumber
+                $funcName = $_.InvocationInfo.MyCommand.Name
+                $msg = "Line $line::$funcName (Attempt [$retryCount/$MaxRetries]):`r`n  $($_.Exception.Message)"
                 Write-Host $msg -ForegroundColor Red
 
                 if ($retryCount -ge $MaxRetries) {
                     $msg = $FailureMessage -f $MaxRetries
-                    Write-Host "  $msg" -ForegroundColor Red
-                    $msg = "Invoke-Retry Error: " + ($FailureMessage -f $MaxRetries) + " Error message: " + $_.Exception.Message
                     Write-Error $msg
+                    return # 這裡不使用 throw 是因為 RetryMessage 中已經有顯示錯誤信息 $_ 了
                 }
                 else {
                     $msg = ($WaitMessage -f $DelaySeconds, ($retryCount + 1), $MaxRetries)
-                    Write-Host "  $msg" -ForegroundColor Yellow
+                    Write-Host $msg -ForegroundColor Yellow
                     Start-Sleep -Seconds $DelaySeconds
                 }
             }
@@ -144,11 +146,11 @@ function Invoke-Retry {
 
 ## 範例2 指定錯誤重試 (範圍外不重試直接報錯)
 # Invoke-Retry {
-#     Get-Content "non-existing-file.txt" -ErrorAction Stop
+#     Get-Content "non-existing-file.txt"
 # } -FinallyScriptBlock {
 #     Write-Host "  🔄 Running Cleanup"
 # } -RetryableErrors @(
-#     # [System.Management.Automation.ItemNotFoundException],
+#     [System.Management.Automation.ItemNotFoundException],
 #     [System.IO.FileNotFoundException],
 #     [System.IO.DirectoryNotFoundException]
 # ) -MaxRetries 3 -DelaySeconds 1 -ErrorAction Stop
