@@ -11,6 +11,8 @@ Invoke-Retry -MaxRetries 3 -DelaySeconds 1 -ErrorAction Stop {
 }
 ```
 
+> 建議 Invoke-Retry 總是搭配 `-ErrorAction Stop` 使用，避免因為忘記在腳本塊中加入錯誤處理，導致腳本沒有觸發例外狀況而無法自動重試。
+
 ## 詳細說明
 
 載入腳本
