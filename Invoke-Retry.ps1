@@ -82,9 +82,9 @@ function Invoke-Retry {
         [int]$DelaySeconds = 60,
         
         # 重試時的訊息
-        [string]$RetryMessage = "Execution failed ({0} / {1}), Error message: {2}",
+        [string]$RetryMessage = "Line {0}::{1} (Attempt[{2}/{3}]): `r`n  {4}",
         # 等待訊息
-        [string]$WaitMessage = "Waiting {0} seconds before retry... (Attempt {1} / {2})",
+        [string]$WaitMessage = "Waiting {0} seconds before retry... (Attempt[{1}/{2}])",
         # 自訂錯誤訊息
         [string]$FailureMessage = "Maximum retry attempts ({0}) reached, program terminated abnormally",
 
@@ -114,7 +114,7 @@ function Invoke-Retry {
                 $retryCount++
                 $line = $_.InvocationInfo.ScriptLineNumber
                 $funcName = $_.InvocationInfo.MyCommand.Name
-                $msg = "Line $line::$funcName (Attempt [$retryCount/$MaxRetries]):`r`n  $($_.Exception.Message)"
+                $msg = $RetryMessage -f $line, $funcName, $retryCount, $MaxRetries, $_.Exception.Message
                 Write-Host $msg -ForegroundColor Red
 
                 if ($retryCount -ge $MaxRetries) {
