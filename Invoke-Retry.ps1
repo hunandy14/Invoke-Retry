@@ -1,3 +1,57 @@
+<#
+.SYNOPSIS
+    執行指定的腳本區塊，在失敗時自動重試。
+
+.DESCRIPTION
+    這個函數會執行提供的腳本區塊，如果執行失敗，會等待指定的時間後重試。
+    重試次數達到上限後，會執行最終腳本區塊（如果提供）並拋出錯誤。
+
+.PARAMETER ScriptBlock
+    要執行的腳本區塊。這是必要參數，可以通過管道傳入。
+
+.PARAMETER FinallyScriptBlock
+    在所有嘗試（無論成功或失敗）後執行的腳本區塊。
+    通常用於清理工作，例如關閉連接或釋放資源。
+
+.PARAMETER MaxRetries
+    最大重試次數。必須是 1 到 100 之間的整數。
+    預設值為 3。
+
+.PARAMETER DelaySeconds
+    每次重試之間的等待時間（秒）。必須是 1 到 3600 之間的整數。
+    預設值為 60。
+
+.PARAMETER RetryMessage
+    重試時顯示的訊息格式。可以使用 {0}、{1}、{2} 作為佔位符：
+    {0} = 當前重試次數
+    {1} = 最大重試次數
+    {2} = 錯誤訊息
+
+.PARAMETER WaitMessage
+    等待重試時顯示的訊息格式。可以使用 {0}、{1}、{2} 作為佔位符：
+    {0} = 等待秒數
+    {1} = 下一次重試的次數
+    {2} = 最大重試次數
+
+.PARAMETER FailureMessage
+    達到最大重試次數時顯示的錯誤訊息格式。
+    可以使用 {0} 作為最大重試次數的佔位符。
+
+.EXAMPLE
+    Invoke-Retry {
+        # 執行可能失敗的操作
+        Get-Content "不存在的檔案.txt"
+    } -MaxRetries 3 -DelaySeconds 5 -EA 1
+
+.EXAMPLE
+    Invoke-Retry {
+        # 執行需要重試的操作
+        Invoke-RestMethod "https://api.example.com/data"
+    } -FinallyScriptBlock {
+        # 清理工作
+        Write-Host "清理資源..."
+    } -MaxRetries 3 -DelaySeconds 5 -EA 1
+#>
 function Invoke-Retry {
     param (
         # 要重試的腳本區塊
@@ -8,8 +62,10 @@ function Invoke-Retry {
         [scriptblock]$FinallyScriptBlock = $null,
 
         # 最大重試次數
+        [ValidateRange(1, 100)]
         [int]$MaxRetries = 3,
-        # 失敗後的等待時間
+        # 失敗後的等待時間（秒）
+        [ValidateRange(1, 3600)]
         [int]$DelaySeconds = 60,
         
         # 重試時的訊息
@@ -58,6 +114,6 @@ function Invoke-Retry {
 
 # Invoke-Retry {
 #     throw "Error occurred"
-# } FfinallyScriptBlock {
+# } -FinallyScriptBlock {
 #     Write-Host "  🔄 Running Cleanup"
-# } -MaxRetries 3 -DelaySeconds 1
+# } -MaxRetries 3 -DelaySeconds 1 -EA 1
