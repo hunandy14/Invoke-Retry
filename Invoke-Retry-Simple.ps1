@@ -10,20 +10,26 @@ function Invoke-Retry {
         [int]$DelaySeconds = 5
     )
 
-    $retryCount = 0
-    while ($retryCount -lt $MaxRetries) {
-        try {
-            & $ScriptBlock
-            return
-        }
-        catch {
-            $retryCount++
-            if ($retryCount -ge $MaxRetries) {
-                Write-Error "Maximum retry attempts ($MaxRetries) reached"
+    $attemptCount = 1
+    try {
+        & $ScriptBlock
+        return
+    }
+    catch {
+        while ($attemptCount -lt $MaxRetries) {
+            $attemptCount++
+            Write-Warning "Operation failed, waiting $DelaySeconds seconds before retry (Attempt $attemptCount/$MaxRetries)"
+            Start-Sleep -Seconds $DelaySeconds
+            try {
+                & $ScriptBlock
                 return
             }
-            Write-Warning "Operation failed, waiting $DelaySeconds seconds before retry (Attempt $retryCount/$MaxRetries)"
-            Start-Sleep -Seconds $DelaySeconds
+            catch {
+                if ($attemptCount -ge $MaxRetries) {
+                    Write-Error "Maximum retry attempts ($MaxRetries) reached"
+                    return
+                }
+            }
         }
     }
 }
